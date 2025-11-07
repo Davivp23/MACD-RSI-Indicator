@@ -1,0 +1,328 @@
+//@version=5
+indicator("MACD Divergences", overlay=false)
+
+// MACD
+
+fast_length = input(title="Fast Length", defval=12)
+slow_length = input(title="Slow Length", defval=26)
+src = input(title="Source", defval=close)
+signal_length = input.int(title="Signal Smoothing",  minval = 1, maxval = 50, defval = 9)
+
+[macd, macd_s, macd_h] = ta.macd(src, fast_length, slow_length, signal_length)
+
+col_macd = input(#2962FF, "MACD Line  ", group="Color Settings", inline="MACD")
+col_signal = input(#FF6D00, "Signal Line  ", group="Color Settings", inline="Signal")
+col_grow_above = input(#26A69A, "Above   Grow", group="Histogram", inline="Above")
+col_fall_above = input(#B2DFDB, "Fall", group="Histogram", inline="Above")
+col_grow_below = input(#FFCDD2, "Below Grow", group="Histogram", inline="Below")
+col_fall_below = input(#FF5252, "Fall", group="Histogram", inline="Below")
+
+plot(math.abs(macd_h), title="Histogram", style=plot.style_columns, color=(macd_h>=0 ? (macd_h[1] < macd_h ? col_grow_above : col_fall_above) : (macd_h[1] < macd_h ? col_grow_below : col_fall_below)))
+plot(math.abs(macd), title="MACD", color=col_macd)
+plot(math.abs(macd_s), title="Signal", color=col_signal)
+
+bullish() =>
+    price_nearest = 99999.9
+    macd_nearest = 0.0
+    macd_nearest_idx = 0
+    
+    price_furthest = 99999.9
+    macd_furthest = 0.0
+    macd_furthest_idx = 0
+    
+    if (macd_h[1] < 0 and macd_h >= 0) or (macd_h[1] < 0 and barstate.islast)
+        i = 1
+        if barstate.islast
+            i := 0
+            
+        while macd_h[i] < 0
+            price_nearest := math.min(low[i], price_nearest)
+            macd_nearest := math.min(macd_h[i], macd_nearest)
+            if macd_h[i] == macd_nearest
+                macd_nearest_idx := i
+            i += 1
+        while macd_h[i] >= 0
+            i += 1
+        while macd_h[i] < 0
+            price_furthest := math.min(low[i], price_furthest)
+            macd_furthest := math.min(macd_h[i], macd_furthest)
+            if macd_h[i] == macd_furthest
+                macd_furthest_idx := i
+            i += 1
+            
+        divergence = 'none'
+        if price_nearest > price_furthest == false and macd_nearest > macd_furthest == true
+            divergence := 'classic'
+        if price_nearest > price_furthest == true and macd_nearest > macd_furthest == false
+            divergence := 'hidden'
+        
+        [divergence, macd_nearest_idx, macd_furthest_idx]
+        
+
+bearish() =>
+    price_nearest = 0.0
+    macd_nearest = 0.0
+    macd_nearest_idx = 0
+    
+    price_furthest = 0.0
+    macd_furthest = 0.0
+    macd_furthest_idx = 0
+    
+    if (macd_h[1] > 0 and macd_h <= 0) or (macd_h[1] > 0 and barstate.islast)
+        i = 1
+        if barstate.islast
+            i := 0
+            
+        while macd_h[i] > 0
+            price_nearest := math.max(high[i], price_nearest)
+            macd_nearest := math.max(macd_h[i], macd_nearest)
+            if macd_h[i] == macd_nearest
+                macd_nearest_idx := i
+            i += 1
+        while macd_h[i] <= 0
+            i += 1
+        while macd_h[i] > 0
+            price_furthest := math.max(high[i], price_furthest)
+            macd_furthest := math.max(macd_h[i], macd_furthest)
+            if macd_h[i] == macd_furthest
+                macd_furthest_idx := i
+            i += 1
+            
+        divergence = 'none'
+        if price_nearest > price_furthest == true and macd_nearest > macd_furthest == false
+            divergence := 'classic'
+        if price_nearest > price_furthest == false and macd_nearest > macd_furthest == true
+            divergence := 'hidden'
+        
+        [divergence, macd_nearest_idx, macd_furthest_idx]
+
+        
+[a_divergence, a_idx_1, a_idx_2] = bullish()
+
+if a_divergence == 'classic'
+    line.new(x1=math.abs(bar_index[a_idx_1]), y1=math.abs(macd_h[a_idx_1]), x2=math.abs(bar_index[a_idx_2]), y2=math.abs(macd_h[a_idx_2]), color=color.teal, width=1)
+    label.new(bar_index[a_idx_1], math.abs(math.max(macd_h[a_idx_1], macd_h[a_idx_2])), color=color.teal, style=label.style_label_down, text="Bullish", size=size.small, textcolor=color.white)
+    
+if a_divergence == 'hidden'
+    line.new(x1=bar_index[a_idx_1], y1=math.abs(macd_h[a_idx_1]), x2=math.abs(bar_index[a_idx_2]), y2=math.abs(macd_h[a_idx_2]), color=color.teal, width=1)
+    label.new(bar_index[a_idx_1], math.abs(math.min(macd_h[a_idx_1], macd_h[a_idx_2])), color=color.teal, style=label.style_label_down, text="Hidden bullish", size=size.small, textcolor=color.white)
+    
+    
+[divergence, idx_1, idx_2] = bearish()
+
+if divergence == 'hidden'
+    line.new(x1=bar_index[idx_1], y1=math.abs(macd_h[idx_1]), x2=bar_index[idx_2], y2=math.abs(macd_h[idx_2]), color=color.red, width=1)
+    label.new(bar_index[idx_1], math.max(macd_h[idx_1], macd_h[idx_2]), color=color.red, style=label.style_label_down, text="Hidden bearish", size=size.small, textcolor=color.white)
+    
+if divergence == 'classic'
+    line.new(x1=bar_index[idx_1], y1=math.abs(macd_h[idx_1]), x2=bar_index[idx_2], y2=math.abs(macd_h[idx_2]), color=color.red, width=1)
+    label.new(bar_index[idx_1], math.min(macd_h[idx_1], macd_h[idx_2]), color=color.red, style=label.style_label_down, text="Bearish", size=size.small, textcolor=color.white)
+    
+alertcondition(barstate.islast and (macd_h >= 0 and macd_h[1] < 0) and a_divergence == 'classic', title='Classic bullish', message='Classic bullish MACD divergence')
+alertcondition(barstate.islast and (macd_h >= 0 and macd_h[1] < 0) and a_divergence == 'hidden', title='Hidden bullish', message='Hidden bullish MACD divergence')
+alertcondition(barstate.islast and (macd_h <= 0 and macd_h[1] > 0) and divergence == 'classic', title='Classic bearish', message='Classic bearish MACD divergence')
+alertcondition(barstate.islast and (macd_h <= 0 and macd_h[1] > 0) and divergence == 'hidden', title='Hidden bearish', message='Hidden bearish MACD divergence')
+alertcondition(barstate.islast and ((macd_h >= 0 and macd_h[1] < 0) or (macd_h <= 0 and macd_h[1] > 0)) and (a_divergence == 'classic' or a_divergence == 'hidden' or divergence == 'classic' or divergence == 'hidden'), title='Any divergence', message='MACD divergence')
+
+// crossover 0 macd and signal
+macd_crossover = ta.crossover (macd, 0)
+signal_crossover = ta.crossover (macd_s, 0)
+
+plotshape( macd_crossover, title = "MACD > 0", location = location.top, style = shape.triangleup, color = col_macd )
+plotshape( signal_crossover, title = "SIGNAL > 0", location = location.top, style = shape.triangleup, color = col_signal )
+
+// crossunder 0 macd and signal
+macd_crossunder = ta.crossunder (macd, 0)
+signal_crossunder = ta.crossunder (macd_s, 0)
+
+plotshape( macd_crossunder, title = "MACD < 0", location = location.top, style = shape.triangledown, color = col_macd )
+plotshape( signal_crossunder, title = "SIGNAL < 0", location = location.top, style = shape.triangledown, color = col_signal )
+
+bgcolor( macd_crossover ? color.new(#fc9924, 85) : na)
+bgcolor( signal_crossover ? color.new(#fc9924, 85) : na)
+bgcolor( macd_crossunder ? color.new(#fc9924, 85) : na)
+bgcolor( signal_crossunder ? color.new(#fc9924, 85) : na)
+
+// rsi
+
+// scale
+hMax = ta.highest(math.abs(macd_h), 5000)
+hMin = ta.lowest(math.abs(macd_h), 5000)
+rawH = hMax - hMin
+h = ta.ema(rawH, 100)
+
+len = input.int(title="RSI Period", minval=1, defval=14)
+rsisrc = input(title="RSI Source", defval=close)
+lbR = input(title="Pivot Lookback Right", defval=5, display = display.data_window)
+lbL = input(title="Pivot Lookback Left", defval=5, display = display.data_window)
+rangeUpper = input(title="Max of Lookback Range", defval=60, display = display.data_window)
+rangeLower = input(title="Min of Lookback Range", defval=5, display = display.data_window)
+plotBull = input(title="Plot Bullish", defval=true, display = display.data_window)
+plotHiddenBull = input(title="Plot Hidden Bullish", defval=true, display = display.data_window)
+plotBear = input(title="Plot Bearish", defval=true, display = display.data_window)
+plotHiddenBear = input(title="Plot Hidden Bearish", defval=true, display = display.data_window)
+bearColor = #fb5358
+bullColor = color.teal
+hiddenBullColor = color.new(color.green, 50)
+hiddenBearColor = color.new(color.red, 50)
+textColor = color.white
+noneColor = color.new(color.white, 100)
+
+// multiply values by h (macd_h) and move it 100h times
+rsiSimple = ta.rsi(rsisrc, len)
+osc = ((rsiSimple - 0)/100) * h - h
+
+plot(osc, title="RSI", linewidth=2, color=#8c1598)
+plot(((float(50) - 0)/100) * h - h, title="Middle Line", color=#787B86, linewidth = 1, style = plot.style_line)
+obLevel = plot(((float(70) - 0)/100) * h - h, title="Overbought", color=#787B86, linewidth = 1, style = plot.style_line)
+osLevel = plot(((float(30) - 0)/100) * h - h, title="Oversold", color=#787B86,  linewidth = 1, style = plot.style_line)
+fill(obLevel, osLevel, title="Background", color=#10021a)
+
+plFound = na(ta.pivotlow(rsiSimple, lbL, lbR)) ? false : true
+phFound = na(ta.pivothigh(rsiSimple, lbL, lbR)) ? false : true
+_inRange(cond) =>
+	bars = ta.barssince(cond == true)
+	rangeLower <= bars and bars <= rangeUpper
+
+//------------------------------------------------------------------------------
+// Regular Bullish
+// Osc: Higher Low
+inRangePl = _inRange(plFound[1])
+oscHL = rsiSimple[lbR] > ta.valuewhen(plFound, rsiSimple[lbR], 1) and inRangePl
+
+// Price: Lower Low
+
+priceLL = low[lbR] < ta.valuewhen(plFound, low[lbR], 1)
+bullCondAlert = priceLL and oscHL and plFound
+bullCond = plotBull and bullCondAlert
+
+plot(
+     plFound ? osc[lbR] : na,
+     offset=-lbR,
+     title="Regular Bullish",
+     linewidth=2,
+     color=(bullCond ? bullColor : noneColor),
+	 display = display.pane,
+	 editable = false
+     )
+
+plotshape(
+	 bullCond ? osc[lbR] : na,
+	 offset=-lbR,
+	 title="Regular Bullish Label",
+	 text=" Bullish ",
+	 style=shape.labelup,
+	 location=location.absolute,
+	 color=bullColor,
+	 textcolor=textColor,
+	 editable = false
+	 )
+
+//------------------------------------------------------------------------------
+// Hidden Bullish
+// Osc: Lower Low
+
+oscLL = rsiSimple[lbR] < ta.valuewhen(plFound, rsiSimple[lbR], 1) and inRangePl
+
+// Price: Higher Low
+
+priceHL = low[lbR] > ta.valuewhen(plFound, low[lbR], 1)
+hiddenBullCondAlert = priceHL and oscLL and plFound
+hiddenBullCond = plotHiddenBull and hiddenBullCondAlert
+
+plot(
+	 plFound ? osc[lbR] : na,
+	 offset=-lbR,
+	 title="Hidden Bullish",
+	 linewidth=2,
+	 color=(hiddenBullCond ? hiddenBullColor : noneColor),
+	 display = display.pane,
+	 editable = false
+	 )
+
+plotshape(
+	 hiddenBullCond ? osc[lbR] : na,
+	 offset=-lbR,
+	 title="Hidden Bullish Label",
+	 text=" Hidden bullish ",
+	 style=shape.labelup,
+	 location=location.absolute,
+	 color=bullColor,
+	 textcolor=textColor,
+	 editable = false
+	 )
+
+//------------------------------------------------------------------------------
+// Regular Bearish
+// Osc: Lower High
+inRangePh = _inRange(phFound[1])
+oscLH = rsiSimple[lbR] < ta.valuewhen(phFound, rsiSimple[lbR], 1) and inRangePh
+
+// Price: Higher High
+
+priceHH = high[lbR] > ta.valuewhen(phFound, high[lbR], 1)
+
+bearCondAlert = priceHH and oscLH and phFound
+bearCond = plotBear and bearCondAlert
+
+plot(
+	 phFound ? osc[lbR] : na,
+	 offset=-lbR,
+	 title="Regular Bearish",
+	 linewidth=2,
+	 color=(bearCond ? bearColor : noneColor),
+	 display = display.pane,
+	 editable = false
+	 )
+
+plotshape(
+	 bearCond ? osc[lbR] : na,
+	 offset=-lbR,
+	 title="Regular Bearish Label",
+	 text=" Bearish ",
+	 style=shape.labeldown,
+	 location=location.absolute,
+	 color=bearColor,
+	 textcolor=textColor,
+	 editable = false
+	 )
+
+//------------------------------------------------------------------------------
+// Hidden Bearish
+// Osc: Higher High
+
+oscHH = rsiSimple[lbR] > ta.valuewhen(phFound, rsiSimple[lbR], 1) and inRangePh
+
+// Price: Lower High
+
+priceLH = high[lbR] < ta.valuewhen(phFound, high[lbR], 1)
+
+hiddenBearCondAlert = priceLH and oscHH and phFound
+hiddenBearCond = plotHiddenBear and hiddenBearCondAlert
+
+plot(
+	 phFound ? osc[lbR] : na,
+	 offset=-lbR,
+	 title="Hidden Bearish",
+	 linewidth=2,
+	 color=(hiddenBearCond ? hiddenBearColor : noneColor),
+	 display = display.pane,
+	 editable = false
+	 )
+
+plotshape(
+	 hiddenBearCond ? osc[lbR] : na,
+	 offset=-lbR,
+	 title="Hidden Bearish Label",
+	 text=" Hidden bearish ",
+	 style=shape.labeldown,
+	 location=location.absolute,
+	 color=bearColor,
+	 textcolor=textColor,
+	 editable = false
+	 )
+
+alertcondition(bullCondAlert, title='Regular Bullish Divergence', message="Found a new Regular Bullish Divergence, `Pivot Lookback Right` number of bars to the left of the current bar")
+alertcondition(hiddenBullCondAlert, title='Hidden Bullish Divergence', message='Found a new Hidden Bullish Divergence, `Pivot Lookback Right` number of bars to the left of the current bar')
+alertcondition(bearCondAlert, title='Regular Bearish Divergence', message='Found a new Regular Bearish Divergence, `Pivot Lookback Right` number of bars to the left of the current bar')
+alertcondition(hiddenBearCondAlert, title='Hidden Bearish Divergence', message='Found a new Hidden Bearish Divergence, `Pivot Lookback Right` number of bars to the left of the current bar')
