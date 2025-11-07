@@ -36,4 +36,4 @@ This indicator is written in **PineScript v5**.
 
 ## License
 
-MIT License - The code and content in this repository are licensed under the MIT License. See the `LICENSE` file for more information.
+GNU GPL v3 license - The code and content in this repository are licensed under the GNU GPL v3 license. See the `LICENSE` file for more information.
