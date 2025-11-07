@@ -15,9 +15,9 @@ This script combines them into **one single indicator**, freeing up a slot. This
 ``
 
 ## How to Use
-# [Direct link](https://www.tradingview.com/script/CmrkjfaP-MACD-Divergences-RSI/)
+### [Direct link](https://www.tradingview.com/script/CmrkjfaP-MACD-Divergences-RSI/)
 
-# Manual mode:
+### Manual mode:
 1.  Open your desired chart on [TradingView](https://www.tradingview.com/).
 2.  Click the **"Pine Editor"** tab at the bottom of the screen.
 3.  Copy the code from the `.pine` file in this repository.
